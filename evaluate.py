@@ -73,7 +73,7 @@ def main():
     # build model
     model = NERModel(config)
     model.build()
-    model.restore_session(config.dir_model)
+    model.restore_session(config.dir_model) # "results/test/model.weights/"
 
     # create dataset
     test  = CoNLLDataset(config.filename_test, config.processing_word,
@@ -81,7 +81,7 @@ def main():
 
     # evaluate and interact
     model.evaluate(test)
-    interactive_shell(model)
+    interactive_shell(model) # test in commend lines
 
 
 if __name__ == "__main__":

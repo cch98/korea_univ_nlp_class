@@ -12,9 +12,10 @@ class NERModel(BaseModel):
     """Specialized class of Model for NER"""
 
     def __init__(self, config):
-        super(NERModel, self).__init__(config)
+        super(NERModel, self).__init__(config) # inheritance BaseModel
         self.idx_to_tag = {idx: tag for tag, idx in
                            self.config.vocab_tags.items()}
+        # {0: 'I-PER', 1: 'I-LOC', 2: 'B-MISC', 3: 'B-PER', 4: 'I-ORG', 5: 'B-ORG', 6: 'O', 7: 'I-MISC', 8: 'B-LOC'}
 
 
     def add_placeholders(self):
@@ -166,7 +167,7 @@ class NERModel(BaseModel):
 
         # Generic functions that add training op and initialize session
         self.add_train_op(self.config.lr_method, self.lr, self.loss,
-                self.config.clip)
+                self.config.clip)#adam optimizer, learning rate: 0.001, softmax_cross_entropy, clip = -1
         self.initialize_session() # now self.sess is defined and vars are init
 
 

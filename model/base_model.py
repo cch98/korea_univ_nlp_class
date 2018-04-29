@@ -14,7 +14,7 @@ class BaseModel(object):
 
         """
         self.config = config
-        self.logger = config.logger
+        self.logger = config.logger #get_logger("results/test/log.txt")
         self.sess   = None
         self.saver  = None
 
@@ -118,7 +118,7 @@ class BaseModel(object):
             self.logger.info("Epoch {:} out of {:}".format(epoch + 1,
                         self.config.nepochs))
 
-            score = self.run_epoch(train, dev, epoch)
+            score = self.run_epoch(train, dev, epoch) # train and get score in dev
             self.config.lr *= self.config.lr_decay # decay learning rate
 
             # early stopping and saving best parameters
