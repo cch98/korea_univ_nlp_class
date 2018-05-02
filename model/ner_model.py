@@ -105,6 +105,30 @@ class NERModel(BaseModel):
             self.word_embeddings =  tf.nn.dropout(word_embeddings, self.dropout)
 
         with tf.variable_scope('char'):
+            f = open("..//data/words.txt", 'r')
+            data = f.read()
+            words_data = data.splite('\n')
+
+            self.char_ids = []
+            max_len = 0
+            for i in self.word_ids:
+                char = []
+                for j in i:
+                    num = int(j)
+                    if(num == 0):
+                        char.append([0])
+                    else:
+                        word = words_data[num]
+                        word_vector = []
+                        max_len = max(max_len, len(word))
+                        for k in word:
+                            word_vector.append(22217-33+ord(k))
+
+                        char.append(word_vector)
+            f.close()
+
+
+
 
             _char_embeddings = tf.Variable(
                 self.config.embeddings,
@@ -113,7 +137,7 @@ class NERModel(BaseModel):
                 trainable=self.config.train_embeddings)
 
             char_embeddings = tf.nn.embedding_lookup(_char_embeddings,
-                                                     self.word_ids, name="char_embeddings")
+                                                     self.char_ids, name="char_embeddings")
             self.char_embeddings = tf.nn.dropout(word_embeddings, self.dropout)
 
     def add_logits_op(self):
@@ -123,7 +147,7 @@ class NERModel(BaseModel):
         of scores, of dimension equal to the number of tags.
         """
         with tf.variable_scope("word-lstm"):
-            for i in len(self.sequence_lengths):
+            for i in len(self.char_ids):
                 fw_cell = tf.contrib.rnn.LSTMCell(self.config.hidden_size_lstm)
                 bf_cell = tf.contrib.rnn.LSTMCell(self.config.hidden_size_lstm)
                 (fw_output, bw_output), _ = tf.nn.bidirectional_dynamic_rnn(
