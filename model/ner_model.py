@@ -71,6 +71,35 @@ class NERModel(BaseModel):
             self.sequence_lengths: sequence_lengths
         }
 
+        f = open("..//data/words.txt", 'r')
+        data = f.read()
+        words_data = data.split('\n')
+
+        char_ids = []
+        word_len = []
+        for i in word_ids:
+            char = []
+            chlen = []
+            for j in i:
+                num = int(j)
+                if (num == 0):
+                    char.append([0])
+                else:
+                    word = words_data[num]
+                    word_vector = []
+                    chlen.append(len(word))
+                    for k in word:
+                        word_vector.append(22217 - 33 + ord(k))
+
+                    char.append(word_vector)
+            char_ids.append(char)
+            word_len.append(chlen)
+        f.close()
+
+        feed[self.char_ids] = char_ids
+        feed[self.word_lengths] = word_len
+
+
         if labels is not None:
             labels, _ = pad_sequences(labels, 0)
             feed[self.labels] = labels
@@ -105,31 +134,6 @@ class NERModel(BaseModel):
             self.word_embeddings =  tf.nn.dropout(word_embeddings, self.dropout)
 
         with tf.variable_scope('char'):
-            f = open("..//data/words.txt", 'r')
-            data = f.read()
-            words_data = data.splite('\n')
-
-            self.char_ids = []
-            max_len = 0
-            for i in self.word_ids:
-                char = []
-                for j in i:
-                    num = int(j)
-                    if(num == 0):
-                        char.append([0])
-                    else:
-                        word = words_data[num]
-                        word_vector = []
-                        max_len = max(max_len, len(word))
-                        for k in word:
-                            word_vector.append(22217-33+ord(k))
-
-                        char.append(word_vector)
-            f.close()
-
-
-
-
             _char_embeddings = tf.Variable(
                 self.config.embeddings,
                 name="_char_embeddings",
@@ -147,11 +151,11 @@ class NERModel(BaseModel):
         of scores, of dimension equal to the number of tags.
         """
         with tf.variable_scope("word-lstm"):
-            for i in len(self.char_ids):
+            for i in range(self.config.batch_size):
                 fw_cell = tf.contrib.rnn.LSTMCell(self.config.hidden_size_lstm)
                 bf_cell = tf.contrib.rnn.LSTMCell(self.config.hidden_size_lstm)
                 (fw_output, bw_output), _ = tf.nn.bidirectional_dynamic_rnn(
-                    fw_cell, bf_cell, self.char_embeddings, sequence_length= self.word_lengths, dtype=tf.float32)
+                    fw_cell, bf_cell, self.char_embeddings[i], sequence_length= self.word_lengths[i], dtype=tf.float32)
                 char_rnn_output = tf.concat([fw_output[self.config.hidden_size_lstm-1], bw_output[self.config.hidden_size_lstm-1]], -1)
                 Wc = tf.get_variable("Wc", dtype=tf.float32, shape=[2*(self.config.hidden_size_lstm), self.hidden_size_char])
                 bc = tf.get_variable("bc", shape=[self.config.hidden_size_char], dtype=tf.float32, initializer=tf.zeros_initializer())
