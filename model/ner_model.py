@@ -104,6 +104,18 @@ class NERModel(BaseModel):
             # shape = (batch_size, max length of sentence in batch, word dimension)
             self.word_embeddings =  tf.nn.dropout(word_embeddings, self.dropout)
 
+        with tf.variable_scope('char'):
+
+            _char_embeddings = tf.Variable(
+                self.config.embeddings,
+                name="_char_embeddings",
+                dtype=tf.float32,
+                trainable=self.config.train_embeddings)
+
+            char_embeddings = tf.nn.embedding_lookup(_char_embeddings,
+                                                     self.word_ids, name="char_embeddings")
+            self.char_embeddings = tf.nn.dropout(word_embeddings, self.dropout)
+
     def add_logits_op(self):
         """Defines self.logits
 
@@ -112,12 +124,21 @@ class NERModel(BaseModel):
         """
         with tf.variable_scope("word-lstm"):
             for i in len(self.sequence_lengths):
-                fw_cell = tf.contrib.rnn.LSTMCell(self.hidden_size_char)
-                bf_cell = tf.contrib.rnn.LSTMCell(self.hidden_size_char)
+                fw_cell = tf.contrib.rnn.LSTMCell(self.config.hidden_size_lstm)
+                bf_cell = tf.contrib.rnn.LSTMCell(self.config.hidden_size_lstm)
                 (fw_output, bw_output), _ = tf.nn.bidirectional_dynamic_rnn(
                     fw_cell, bf_cell, self.char_embeddings, sequence_length= self.word_lengths, dtype=tf.float32)
-                char_rnn_output = tf.concat([fw_output[self.hidden_size_char-1], bw_output[self.hidden_size_char-1]], -1)
-                char_output = tf.concat([char_output, char_rnn_output], 0)
+                char_rnn_output = tf.concat([fw_output[self.config.hidden_size_lstm-1], bw_output[self.config.hidden_size_lstm-1]], -1)
+                Wc = tf.get_variable("Wc", dtype=tf.float32, shape=[2*(self.config.hidden_size_lstm), self.hidden_size_char])
+                bc = tf.get_variable("bc", shape=[self.config.hidden_size_char], dtype=tf.float32, initializer=tf.zeros_initializer())
+                char_rnn_output = tf.matmul(char_rnn_output, Wc) + bc
+                char_rnn_output = tf.reshape(char_rnn_output, [])
+                if(i==0):
+                    char_output = char_rnn_output
+                else:
+                    char_output = tf.concat([char_output, char_rnn_output], 0)
+                char_output = tf.transpose(char_output)
+
         with tf.variable_scope("bi-lstm"):
             cell_fw = tf.contrib.rnn.LSTMCell(self.config.hidden_size_lstm)
             cell_bw = tf.contrib.rnn.LSTMCell(self.config.hidden_size_lstm)
