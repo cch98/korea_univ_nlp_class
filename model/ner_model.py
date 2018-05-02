@@ -110,6 +110,14 @@ class NERModel(BaseModel):
         For each word in each sentence of the batch, it corresponds to a vector
         of scores, of dimension equal to the number of tags.
         """
+        with tf.variable_scope("word-lstm"):
+            for i in len(self.sequence_lengths):
+                fw_cell = tf.contrib.rnn.LSTMCell(self.hidden_size_char)
+                bf_cell = tf.contrib.rnn.LSTMCell(self.hidden_size_char)
+                (fw_output, bw_output), _ = tf.nn.bidirectional_dynamic_rnn(
+                    fw_cell, bf_cell, self.char_embeddings, sequence_length= self.word_lengths, dtype=tf.float32)
+                char_rnn_output = tf.concat([fw_output[self.hidden_size_char-1], bw_output[self.hidden_size_char-1]], -1)
+                char_output = tf.concat([char_output, char_rnn_output], 0)
         with tf.variable_scope("bi-lstm"):
             cell_fw = tf.contrib.rnn.LSTMCell(self.config.hidden_size_lstm)
             cell_bw = tf.contrib.rnn.LSTMCell(self.config.hidden_size_lstm)
@@ -121,13 +129,14 @@ class NERModel(BaseModel):
 
         with tf.variable_scope("proj"):
             W = tf.get_variable("W", dtype=tf.float32,
-                    shape=[2*self.config.hidden_size_lstm, self.config.ntags])
+                    shape=[2*(self.config.hidden_size_lstm+self.config.hidden_size_char), self.config.ntags])
 
             b = tf.get_variable("b", shape=[self.config.ntags],
                     dtype=tf.float32, initializer=tf.zeros_initializer())
 
+            output = tf.concat([output, char_output], -1)
             nsteps = tf.shape(output)[1]
-            output = tf.reshape(output, [-1, 2*self.config.hidden_size_lstm])
+            output = tf.reshape(output, [-1, 2*(self.config.hidden_size_lstm+self.config.hidden_size_char)])
             pred = tf.matmul(output, W) + b
             self.logits = tf.reshape(pred, [-1, nsteps, self.config.ntags])
             self.labels_pred = tf.cast(tf.argmax(self.logits, axis=-1),
