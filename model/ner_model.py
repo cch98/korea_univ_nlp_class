@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import re
 import tensorflow as tf
 
 
@@ -66,38 +67,76 @@ class NERModel(BaseModel):
         word_ids, sequence_lengths = pad_sequences(words, 0)
 
         # build feed dictionary
-        feed = {
-            self.word_ids: word_ids,
-            self.sequence_lengths: sequence_lengths
-        }
 
-        f = open("..//data/words.txt", 'r')
+        print("---------word_ids----------")
+       # print(word_ids)
+        print("---------sequence_len----------")
+        #print(sequence_lengths)
+
+        f = open("/Users/choichangho/NLP2018/korea_univ_nlp_class/data/words.txt", 'r')
         data = f.read()
-        words_data = data.split('\n')
+        f.close()
+        words_data = data.split("\n")
+        #print(words_data)
+
 
         char_ids = []
         word_len = []
+        mx_len = 0
+
+        for i in word_ids:
+            for j in i:
+                num = int(j)
+                if(num!= 0):
+                    word = words_data[num]
+                    mx_len = max(mx_len, len(word))
+
+        print("---------mx_len-----------")
+        print(mx_len)
+
         for i in word_ids:
             char = []
             chlen = []
+
             for j in i:
                 num = int(j)
+                word_vector = []
+                chlen.append(len(word))
                 if (num == 0):
-                    char.append([0])
+                    for tt in range(mx_len):
+                        word_vector.append(0)
+
                 else:
                     word = words_data[num]
-                    word_vector = []
-                    chlen.append(len(word))
                     for k in word:
                         word_vector.append(22217 - 33 + ord(k))
+                    while(len(word_vector) < mx_len):
+                        word_vector.append(0)
 
-                    char.append(word_vector)
+                if(len(word_vector) != 17):
+                    print("===================")
+                    print(len(word_vector))
+                char.append(word_vector)
+
+            if(len(char) != 40):
+                print("__________________")
+                print(len(char))
+
+            print(len(chlen))
+
             char_ids.append(char)
             word_len.append(chlen)
-        f.close()
 
-        feed[self.char_ids] = char_ids
-        feed[self.word_lengths] = word_len
+        #print("-------------------")
+        #print(char_ids)
+        #print(word_len)
+
+        feed = {
+            self.word_ids: word_ids,
+            self.sequence_lengths: sequence_lengths,
+            self.char_ids: char_ids,
+            self.word_lengths: word_len,
+        }
 
 
         if labels is not None:
@@ -153,17 +192,18 @@ class NERModel(BaseModel):
         with tf.variable_scope("word-lstm", reuse=tf.AUTO_REUSE):
             fw_cell = tf.contrib.rnn.LSTMCell(self.config.hidden_size_lstm)
             bf_cell = tf.contrib.rnn.LSTMCell(self.config.hidden_size_lstm)
-            for i in range(self.config.batch_size):
+            Wc = tf.get_variable("Wc", dtype=tf.float32,
+                                 shape=[2 * (self.config.hidden_size_lstm), self.config.hidden_size_char])
+            bc = tf.get_variable("bc", shape=[self.config.hidden_size_char], dtype=tf.float32,
+                                 initializer=tf.zeros_initializer())
+        for i in range(self.config.batch_size):
                 (fw_output, bw_output), _ = tf.nn.bidirectional_dynamic_rnn(
                     fw_cell, bf_cell, self.char_embeddings[i], sequence_length= self.word_lengths[i], dtype=tf.float32)
                 char_rnn_output = tf.concat([fw_output[self.config.hidden_size_lstm-1], bw_output[self.config.hidden_size_lstm-1]], -1)
-                Wc = tf.get_variable("Wc", dtype=tf.float32, shape=[2*(self.config.hidden_size_lstm), self.config.hidden_size_char])
-                bc = tf.get_variable("bc", shape=[self.config.hidden_size_char], dtype=tf.float32, initializer=tf.zeros_initializer())
                 char_rnn_output = tf.matmul(char_rnn_output, Wc) + bc
-                char_rnn_output = tf.reshape(char_rnn_output, [])
                 if(i==0):
                     char_output = [char_rnn_output]
-                    print('-----------------------------')
+
                 else:
                     char_output = tf.concat([char_output,[char_rnn_output]], 0)
             #char_output = tf.transpose(char_output)
