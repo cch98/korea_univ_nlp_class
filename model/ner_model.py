@@ -183,24 +183,48 @@ class NERModel(BaseModel):
         For each word in each sentence of the batch, it corresponds to a vector
         of scores, of dimension equal to the number of tags.
         """
+        with tf.variable_scope("word-lstm", reuse=tf.AUTO_REUSE):
+            fw_cell = tf.contrib.rnn.LSTMCell(self.config.hidden_size_char)
+            bf_cell = tf.contrib.rnn.LSTMCell(self.config.hidden_size_char)
+            Wc = tf.get_variable("Wc", dtype=tf.float32,
+                                 shape=[2 * (self.config.hidden_size_char), 10])
+            bc = tf.get_variable("bc", shape=[10], dtype=tf.float32,
+                                 initializer=tf.zeros_initializer())
+        for i in range(self.config.batch_size):
+            (fw_output, bw_output), _ = tf.nn.bidirectional_dynamic_rnn(
+                fw_cell, bf_cell, self.char_embeddings[i], sequence_length=self.word_lengths[i], dtype=tf.float32)
+            char_rnn_output = tf.concat(
+                [fw_output[self.config.hidden_size_char - 1], bw_output[self.config.hidden_size_char - 1]], -1)
+            char_rnn_output = tf.matmul(char_rnn_output, Wc) + bc
+            if (i == 0):
+                char_output = [char_rnn_output]
+
+            else:
+                char_output = tf.concat([char_output, [char_rnn_output]], 0)
+                # char_output = tf.transpose(char_output)
+
         with tf.variable_scope("bi-lstm"):
             cell_fw = tf.contrib.rnn.LSTMCell(self.config.hidden_size_lstm)
             cell_bw = tf.contrib.rnn.LSTMCell(self.config.hidden_size_lstm)
             (output_fw, output_bw), _ = tf.nn.bidirectional_dynamic_rnn(
-                    cell_fw, cell_bw, self.word_embeddings,
-                    sequence_length=self.sequence_lengths, dtype=tf.float32)
+                cell_fw, cell_bw, self.word_embeddings,
+                sequence_length=self.sequence_lengths, dtype=tf.float32)
             output = tf.concat([output_fw, output_bw], axis=-1)
             output = tf.nn.dropout(output, self.dropout)
 
         with tf.variable_scope("proj"):
             W = tf.get_variable("W", dtype=tf.float32,
-                    shape=[2*self.config.hidden_size_lstm, self.config.ntags])
+                                shape=[2 * (self.config.hidden_size_lstm)+ 10, self.config.ntags])
 
             b = tf.get_variable("b", shape=[self.config.ntags],
-                    dtype=tf.float32, initializer=tf.zeros_initializer())
-
+                                dtype=tf.float32, initializer=tf.zeros_initializer())
+            print('----------output shape--------')
+            print(output)
+            print('----------char output shape-------')
+            print(char_output)
+            output = tf.concat([output, char_output], -1)
             nsteps = tf.shape(output)[1]
-            output = tf.reshape(output, [-1, 2*self.config.hidden_size_lstm])
+            output = tf.reshape(output, [-1, 2 * (self.config.hidden_size_lstm) + 10])
             pred = tf.matmul(output, W) + b
             self.logits = tf.reshape(pred, [-1, nsteps, self.config.ntags])
             self.labels_pred = tf.cast(tf.argmax(self.logits, axis=-1),
