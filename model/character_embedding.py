@@ -12,5 +12,5 @@ for i in rr:
         word_token.append(j)
     token_ch.append(word_token)
 
-embedding_model = Word2Vec(token_ch, size=300, window = 2, min_count=10, workers=4, sg=1)
+embedding_model = Word2Vec(token_ch, size=100, window = 2)
 embedding_model.save("asdf")

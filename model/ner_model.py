@@ -6,6 +6,7 @@ import tensorflow as tf
 from .data_utils import minibatches, pad_sequences, get_chunks
 from .general_utils import Progbar
 from .base_model import BaseModel
+from gensim.models import Word2Vec
 
 
 class NERModel(BaseModel):
@@ -65,10 +66,80 @@ class NERModel(BaseModel):
         
         word_ids, sequence_lengths = pad_sequences(words, 0)
 
+
+        model = Word2Vec.load("/Users/choichangho/NLP2018/korea_univ_nlp_class/model/asdf")
+        f = open("..//data/words.txt", 'r')
+        data = f.read()
+        f.close()
+        words_data = data.split("\n")
+        # print(words_data)
+
+
+        char_ids = []
+        word_len = []
+        mx_len = 0
+
+        for i in word_ids:
+            for j in i:
+                num = int(j)
+                if (num != 0):
+                    word = words_data[num]
+                    mx_len = max(mx_len, len(word))
+
+        print("---------mx_len-----------")
+        print(mx_len)
+
+        for i in word_ids:
+            char = []
+            chlen = []
+
+            for j in i:
+                num = int(j)
+                word_vector = []
+                chlen.append(len(word))
+                if (num == 0):
+                    for tt in range(mx_len):
+                        for i in range(100):
+                            blank.append(0)
+                        word_vector.append(blank)
+
+                else:
+                    word = words_data[num]
+                    for k in word:
+                        x = model.wv[k]
+                        x = x.tolist()
+                        word_vector.append(x)
+                    while (len(word_vector) < mx_len):
+                        blank = []
+                        for i in range(100):
+                            blank.append(0)
+                        word_vector.append(blank)
+
+                if (len(word_vector) != 17):
+                    print("===================")
+                    print(len(word_vector))
+                char.append(word_vector)
+
+            if (len(char) != 40):
+                print("__________________")
+                print(len(char))
+
+            char_ids.append(char)
+            word_len.append(chlen)
+
+
+        print("----------shape------------")
+        print(np.shape(word_ids))
+        print(np.shape(sequence_lengths))
+        print(np.shape(char_ids))
+        print(np.shape(word_len))
+
         # build feed dictionary
         feed = {
             self.word_ids: word_ids,
-            self.sequence_lengths: sequence_lengths
+            self.sequence_lengths: sequence_lengths,
+            self.char_ids: char_ids,
+            self.word_lengths: word_len
         }
 
         if labels is not None:
