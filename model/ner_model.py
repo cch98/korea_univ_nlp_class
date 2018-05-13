@@ -99,21 +99,23 @@ class NERModel(BaseModel):
                 chlen.append(len(word))
                 if (num == 0):
                     for tt in range(mx_len):
-                        for i in range(100):
-                            blank.append(0)
-                        word_vector.append(blank)
+                        # for i in range(100):
+                        #     blank.append(0)
+                        # word_vector.append(blank)
+                        word_vector.append(0)
 
                 else:
                     word = words_data[num]
                     for k in word:
-                        x = model.wv[k]
-                        x = x.tolist()
-                        word_vector.append(x)
+                        # x = model.wv[k]
+                        # x = x.tolist()
+                        word_vector.append(ord(k))
                     while (len(word_vector) < mx_len):
                         blank = []
-                        for i in range(100):
-                            blank.append(0)
-                        word_vector.append(blank)
+                        # for i in range(100):
+                        #     blank.append(0)
+                        # word_vector.append(blank)
+                        word_vector.append(0)
 
                 if (len(word_vector) != 17):
                     print("===================")
